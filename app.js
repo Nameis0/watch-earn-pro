@@ -164,3 +164,240 @@ historyTree + "\n" +
   .then(data => console.log("Telegram alert response:", data))
   .catch(err => console.error("Telegram error:", err));
 }
+
+// --- LIVE HISTORY & TAB SWITCHING LOGIC ---
+window.switchHistoryTab = function(tab) {
+  const btnCoins = document.getElementById("tab-btn-coins");
+  const btnWithdraw = document.getElementById("tab-btn-withdraw");
+  const panelCoins = document.getElementById("history-coins-panel");
+  const panelWithdraw = document.getElementById("history-withdraw-panel");
+
+  if (!btnCoins || !btnWithdraw) return;
+
+  if (tab === "coins") {
+    btnCoins.style.background = "#eab308";
+    btnCoins.style.color = "#000";
+    btnWithdraw.style.background = "#1e293b";
+    btnWithdraw.style.color = "#94a3b8";
+    if (panelCoins) panelCoins.style.display = "block";
+    if (panelWithdraw) panelWithdraw.style.display = "none";
+  } else {
+    btnWithdraw.style.background = "#eab308";
+    btnWithdraw.style.color = "#000";
+    btnCoins.style.background = "#1e293b";
+    btnCoins.style.color = "#94a3b8";
+    if (panelCoins) panelCoins.style.display = "none";
+    if (panelWithdraw) panelWithdraw.style.display = "block";
+  }
+};
+
+window.renderLiveHistory = function() {
+  const userId = localStorage.getItem("watch_earn_uid") || (window.currentUser && window.currentUser.identifier);
+  if (!userId) return;
+
+  // 1. Withdrawals List Render
+  const withdrawContainer = document.getElementById("withdraw-history-list");
+  if (withdrawContainer) {
+    let wHistory = JSON.parse(localStorage.getItem("withdraw_history_" + userId) || "[]");
+    
+    if (wHistory.length === 0) {
+      withdrawContainer.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No withdrawal requests yet.</div>';
+    } else {
+      withdrawContainer.innerHTML = wHistory.slice().reverse().map(item => {
+        let statusColor = "#f59e0b";
+        let statusText = "Pending ⏳";
+        if (item.status === "Approved" || item.status === "SUCCESS") {
+          statusColor = "#10b981";
+          statusText = "Approved ✅";
+        } else if (item.status === "Rejected" || item.status === "REFUNDED") {
+          statusColor = "#ef4444";
+          statusText = "Rejected ❌";
+        }
+
+        return `
+          <div style="background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div>
+              <div style="font-weight:700; font-size:14px; color:#fff;">₹${item.amount} via ${item.upi || item.method || 'UPI'}</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">${item.dateStr || item.date || 'Recent'}</div>
+            </div>
+            <div style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; background:${statusColor}22; color:${statusColor}; border:1px solid ${statusColor}44;">
+              ${statusText}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+
+  // 2. Earnings / Coins List Render
+  const coinsContainer = document.getElementById("coins-history-list");
+  if (coinsContainer) {
+    let earnHistory = JSON.parse(localStorage.getItem("earn_history_" + userId) || "[]");
+    if (earnHistory.length === 0) {
+      coinsContainer.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No earnings history recorded yet.</div>';
+    } else {
+      coinsContainer.innerHTML = earnHistory.slice().reverse().map(earn => `
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <div style="font-weight:700; font-size:14px; color:#fff;">${earn.title || "Ad / Task Reward"}</div>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">${earn.time || "Recently"}</div>
+          </div>
+          <div style="font-size:13px; font-weight:800; color:#facc15;">
+            +${earn.coins} 🪙
+          </div>
+        </div>
+      `).join("");
+    }
+  }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => { if (typeof renderLiveHistory === "function") renderLiveHistory(); }, 500);
+});
+
+// --- LIVE HISTORY & TAB SWITCHING LOGIC ---
+window.switchHistoryTab = function(tab) {
+  const btnCoins = document.getElementById("tab-btn-coins");
+  const btnWithdraw = document.getElementById("tab-btn-withdraw");
+  const panelCoins = document.getElementById("history-coins-panel");
+  const panelWithdraw = document.getElementById("history-withdraw-panel");
+
+  if (!btnCoins || !btnWithdraw) return;
+
+  if (tab === "coins") {
+    btnCoins.style.background = "#eab308";
+    btnCoins.style.color = "#000";
+    btnWithdraw.style.background = "#1e293b";
+    btnWithdraw.style.color = "#94a3b8";
+    if (panelCoins) panelCoins.style.display = "block";
+    if (panelWithdraw) panelWithdraw.style.display = "none";
+  } else {
+    btnWithdraw.style.background = "#eab308";
+    btnWithdraw.style.color = "#000";
+    btnCoins.style.background = "#1e293b";
+    btnCoins.style.color = "#94a3b8";
+    if (panelCoins) panelCoins.style.display = "none";
+    if (panelWithdraw) panelWithdraw.style.display = "block";
+  }
+};
+
+window.renderLiveHistory = function() {
+  const userId = localStorage.getItem("watch_earn_uid") || (window.currentUser && window.currentUser.identifier);
+  if (!userId) return;
+
+  // 1. Withdrawals List Render
+  const withdrawContainer = document.getElementById("withdraw-history-list");
+  if (withdrawContainer) {
+    let wHistory = JSON.parse(localStorage.getItem("withdraw_history_" + userId) || "[]");
+    
+    if (wHistory.length === 0) {
+      withdrawContainer.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No withdrawal requests yet.</div>';
+    } else {
+      withdrawContainer.innerHTML = wHistory.slice().reverse().map(item => {
+        let statusColor = "#f59e0b";
+        let statusText = "Pending ⏳";
+        if (item.status === "Approved" || item.status === "SUCCESS") {
+          statusColor = "#10b981";
+          statusText = "Approved ✅";
+        } else if (item.status === "Rejected" || item.status === "REFUNDED") {
+          statusColor = "#ef4444";
+          statusText = "Rejected ❌";
+        }
+
+        return `
+          <div style="background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div>
+              <div style="font-weight:700; font-size:14px; color:#fff;">₹${item.amount} via ${item.upi || item.method || 'UPI'}</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">${item.dateStr || item.date || 'Recent'}</div>
+            </div>
+            <div style="font-size:12px; font-weight:800; padding:4px 8px; border-radius:6px; background:${statusColor}22; color:${statusColor}; border:1px solid ${statusColor}44;">
+              ${statusText}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+
+  // 2. Earnings / Coins List Render
+  const coinsContainer = document.getElementById("coins-history-list");
+  if (coinsContainer) {
+    let earnHistory = JSON.parse(localStorage.getItem("earn_history_" + userId) || "[]");
+    if (earnHistory.length === 0) {
+      coinsContainer.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No earnings history recorded yet.</div>';
+    } else {
+      coinsContainer.innerHTML = earnHistory.slice().reverse().map(earn => `
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:14px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <div style="font-weight:700; font-size:14px; color:#fff;">${earn.title || "Ad / Task Reward"}</div>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">${earn.time || "Recently"}</div>
+          </div>
+          <div style="font-size:13px; font-weight:800; color:#facc15;">
+            +${earn.coins} 🪙
+          </div>
+        </div>
+      `).join("");
+    }
+  }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => { if (typeof renderLiveHistory === "function") renderLiveHistory(); }, 500);
+});
+
+// --- MONETAG REWARDED AD SYSTEM ---
+function runMonetagRewardedAd(onSuccess) {
+  try {
+    if (typeof window.show_282444 === "function") {
+      window.show_282444();
+    } else if (typeof window.show_88 === "function") {
+      window.show_88();
+    }
+  } catch(e) {}
+
+  var timeLeft = 30;
+  var badge = document.getElementById("monetagBadge");
+  if (!badge) {
+    badge = document.createElement("div");
+    badge.id = "monetagBadge";
+    badge.style.cssText = "position:fixed; top:18px; right:18px; z-index:999999; background:#0f172a; border:1px solid #facc15; border-radius:12px; padding:8px 14px; display:flex; align-items:center; gap:8px; box-shadow:0 8px 24px rgba(0,0,0,0.6); color:#fff; font-size:12px; font-weight:700;";
+    document.body.appendChild(badge);
+  }
+  badge.style.display = "flex";
+  badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="color:#facc15;"></i> Ad in progress: <span id="adTimerNum" style="color:#facc15; margin-left:4px;">30s</span>';
+
+  if (window.activeRewardTimer) clearInterval(window.activeRewardTimer);
+  window.activeRewardTimer = setInterval(function() {
+    timeLeft--;
+    var numEl = document.getElementById("adTimerNum");
+    if (numEl) numEl.innerText = timeLeft + "s";
+
+    if (timeLeft <= 0) {
+      clearInterval(window.activeRewardTimer);
+      badge.style.display = "none";
+      if (typeof onSuccess === "function") onSuccess();
+    }
+  }, 1000);
+}
+
+function startVideoTask() {
+  runMonetagRewardedAd(function() {
+    if (typeof applyCoins === "function") {
+      applyCoins(5);
+    }
+    if (typeof showToast === "function") showToast("🎉 +5 Coins Added!", "🪙");
+    else alert("🎉 +5 Coins Added!");
+  });
+}
+
+function watchAdForExtraSpin() {
+  runMonetagRewardedAd(function() {
+    if (typeof currentSpins !== "undefined") {
+      currentSpins += 1;
+      localStorage.setItem("user_spins_count", currentSpins);
+      if (typeof syncSpinUI === "function") syncSpinUI();
+    }
+    if (typeof showToast === "function") showToast("🎉 +1 Spin Added!", "🎡");
+    else alert("🎉 +1 Spin Added!");
+  });
+}

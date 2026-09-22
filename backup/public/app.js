@@ -80,15 +80,7 @@ function getHardwareFingerprint() {
 }
 
 
-// --- DEVICE GUARD: 1 DEVICE = 1 ACCOUNT ---
-function getHardwareFingerprint() {
-  let devId = localStorage.getItem("we_device_id");
-  if (!devId) {
-    devId = "DEV_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now().toString(36);
-    localStorage.setItem("we_device_id", devId);
-  }
-  return devId;
-}
+// [Duplicate Removed: Native WebGL Hardware Guard Active]
 
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
@@ -112,7 +104,7 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 var currentUser = null;
 var currentUID = localStorage.getItem("we_uid") || "";
 var userCoins = parseInt(localStorage.getItem("we_coins") || "200", 10);
-var userSpins = parseInt(localStorage.getItem("we_spins") || "5", 10);
+var userSpins = parseInt(localStorage.getItem("we_spins") || "10", 10);
 var selectedWithdrawAmount = 5;
 var streakRewards = [50, 70, 100, 150, 170, 200, 300];
 var currentActiveScreen = "home";
@@ -151,7 +143,7 @@ function navigateInternal(screenName, push) {
     window.history.pushState({ screen: screenName }, "", "");
   }
 
-  if (screenName === "spin") { setTimeout(initWheelCanvas, 50); if (typeof updateSpinUIStatus === "function") updateSpinUIStatus(); }
+  if (screenName === "spin") setTimeout(initWheelCanvas, 50);
   if (screenName === "history") renderHistory();
 }
 
@@ -231,7 +223,7 @@ function proceedUserSession(user) {
     localStorage.setItem(initKey, "true");
   } else {
     userCoins = parseInt(localStorage.getItem("we_coins") || "200", 10);
-    userSpins = parseInt(localStorage.getItem("we_spins") || "5", 10);
+    userSpins = parseInt(localStorage.getItem("we_spins") || "10", 10);
   }
 
   syncBalances();
@@ -262,10 +254,6 @@ function listenToLiveWithdrawals() {
     Object.keys(cloudList).forEach(function(k) {
       list.push(cloudList[k]);
     });
-    localStorage.setItem("we_withdraw_list_" + currentUID, JSON.stringify(list));
-    Object.keys(cloudList).forEach(function(k) {
-      list.push(cloudList[k]);
-    });
     list.sort((a, b) => b.timestamp - a.timestamp);
 
     // Save to LocalStorage
@@ -289,71 +277,33 @@ function listenToLiveWithdrawals() {
   });
 }
 
-// --- REALTIME 2-WAY CLOUD BALANCE SYNC (STRICT CLOUD LOCK) ---
+// --- REALTIME 2-WAY CLOUD BALANCE SYNC ---
 function listenToCloudUserData() {
   if (!currentUser) return;
-  var userRef = rtdb.ref("users/" + currentUser.uid);
-  userRef.on("value", function(snap) {
+  rtdb.ref("users/" + currentUser.uid).on("value", function(snap) {
     var data = snap.val();
-    var todayStr = new Date().toDateString();
-
-    if (!data || !data.lastSpinDate) {
-      userCoins = (data && data.coins !== undefined) ? data.coins : 200;
-      userSpins = 5;
-      var adUsed = 0;
-      localStorage.setItem("we_coins", userCoins);
-      localStorage.setItem("we_spins", userSpins);
-      localStorage.setItem("we_ad_spins_used_" + currentUser.uid, adUsed.toString());
-      userRef.update({
-        coins: userCoins,
-        spins: userSpins,
-        adSpinsUsed: adUsed,
-        lastSpinDate: todayStr
-      }).catch(function() {});
-    } else {
-      if (data.lastSpinDate !== todayStr) {
-        userSpins = 5;
-        var adUsed = 0;
-        localStorage.setItem("we_spins", userSpins);
-        localStorage.setItem("we_ad_spins_used_" + currentUser.uid, adUsed.toString());
-        userRef.update({
-          spins: userSpins,
-          adSpinsUsed: adUsed,
-          lastSpinDate: todayStr
-        }).catch(function() {});
-      } else {
-        if (data.spins !== undefined) {
-          userSpins = data.spins;
-          localStorage.setItem("we_spins", userSpins);
-        }
-        if (data.adSpinsUsed !== undefined) {
-          localStorage.setItem("we_ad_spins_used_" + currentUser.uid, data.adSpinsUsed.toString());
-        }
-      }
-
+    if (data) {
       if (data.coins !== undefined) {
         userCoins = data.coins;
         localStorage.setItem("we_coins", userCoins);
       }
+      if (data.spins !== undefined) {
+        userSpins = data.spins;
+        localStorage.setItem("we_spins", userSpins);
+      }
+      syncBalances();
     }
-
-    syncBalances();
-    if (typeof updateSpinUIStatus === "function") updateSpinUIStatus();
   });
 }
 
 function syncToFirebaseCloud() {
   if (currentUser) {
-    var todayStr = new Date().toDateString();
-    var adUsed = parseInt(localStorage.getItem("we_ad_spins_used_" + currentUser.uid) || "0", 10);
     rtdb.ref("users/" + currentUser.uid).update({
       uid: currentUID,
       email: currentUser.email,
       name: currentUser.displayName,
       coins: userCoins,
       spins: userSpins,
-      adSpinsUsed: adUsed,
-      lastSpinDate: todayStr,
       lastActive: firebase.database.ServerValue.TIMESTAMP
     }).catch(function() {});
   }
@@ -478,32 +428,9 @@ window.openSpecialEarningsModal = function() {
       <p style="font-size:11px; color:#94a3b8; margin-bottom:10px;">Share your code with friends. When they redeem it, you get <b>+200 Coins</b>!</p>
 
       <label style="font-size:11px; color:#94a3b8; font-weight:700;">YOUR REDEEM CODE:</label>
-      <div style="display:flex; gap:8px; margin: 5px 0 8px;">
+      <div style="display:flex; gap:8px; margin: 5px 0 12px;">
         <input type="text" id="modalMyReferCode" class="input-box" readonly value="${currentUID}" style="margin-bottom:0; font-weight:800; color:#facc15; text-align:center; padding:10px;">
         <button class="btn-claim" style="padding:0 16px; font-size:12px;" onclick="copyModalReferCode()"><i class="fa-solid fa-copy"></i> Copy</button>
-      </div>
-
-      <!-- Social Share Buttons -->
-      <div style="display:flex; gap:8px; margin-bottom:14px;">
-        <button onclick="shareReferral(whatsapp)" style="flex:1; padding:8px; background:#25D366; color:#fff; border:none; border-radius:10px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-          <i class="fa-brands fa-whatsapp" style="font-size:14px;"></i> WhatsApp
-        </button>
-        <button onclick="shareReferral(facebook)" style="flex:1; padding:8px; background:#1877F2; color:#fff; border:none; border-radius:10px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-          <i class="fa-brands fa-facebook" style="font-size:14px;"></i> Facebook
-        </button>
-        <button onclick="shareReferral(instagram)" style="flex:1; padding:8px; background:linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color:#fff; border:none; border-radius:10px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-          <i class="fa-brands fa-instagram" style="font-size:14px;"></i> Insta
-        </button>
-      </div>
-
-      <!-- 10 Active Referrals = ₹20 Direct Pay Box -->
-      <div id="refMilestoneBox" style="background:rgba(168,85,247,0.1); border:1px dashed #a855f7; border-radius:14px; padding:12px; margin-bottom:14px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <span style="font-size:12px; font-weight:800; color:#facc15;">🎁 Milestone: 10 Active Referrals</span>
-          <span style="font-size:12px; font-weight:800; color:#38bdf8;"><span id="activeRefCountText">0</span>/10</span>
-        </div>
-        <p style="font-size:11px; color:#94a3b8; margin:0 0 8px;">Refer 10 active friends to unlock <b>₹20 Direct Cash</b>!</p>
-        <button id="claimMilestoneCashBtn" onclick="claimReferralCashMilestone()" style="width:100%; padding:10px; background:#334155; color:#94a3b8; font-weight:800; font-size:12px; border:none; border-radius:10px; cursor:not-allowed;">🔒 Claim ₹20 Cash (Locked)</button>
       </div>
 
       <label style="font-size:11px; color:#94a3b8; font-weight:700;">HAVE A FRIEND'S CODE?</label>
@@ -516,7 +443,6 @@ window.openSpecialEarningsModal = function() {
     </div>
   `;
   document.body.appendChild(modal);
-  checkReferralMilestoneStatus();
 };
 
 window.handleSocialClick = function(type, url) {
@@ -554,28 +480,9 @@ window.applyModalReferralCode = function() {
     return;
   }
 
-  if (typeof rtdb !== "undefined") {
-    rtdb.ref("users/" + code + "/coins").transaction(function(c) {
-      return (c || 0) + 200;
-    });
-    rtdb.ref("users/" + code + "/referralsCount").transaction(function(c) {
-      return (c || 0) + 1;
-    });
-    rtdb.ref("users/" + code + "/activeReferralsCount").transaction(function(c) {
-      return (c || 0) + 1;
-    });
-  }
-
   localStorage.setItem(key, code);
   addCoins(100, "Referral Welcome Bonus");
-  showRewardModal("REDEEM SUCCESS!", "You got +100 bonus coins! Friend received +200 coins.", 100);
-
-  var btn = document.getElementById("modalApplyCodeBtn");
-  if (btn) {
-    btn.disabled = true;
-    btn.innerText = "Claimed";
-    btn.style.opacity = "0.5";
-  }
+  showRewardModal("REDEEM SUCCESS!", "You received +100 bonus coins for using a friend's code!", 100);
 };
 
 // 7-Day Streak
@@ -646,80 +553,75 @@ window.claimDailyStreak = function() {
 var isSpinning = false;
 var wheelAngle = 0;
 var sectors = [
-  { label: "10",  value: 10,  color: "#1e293b", textColor: "#f8fafc" },
-  { label: "50",  value: 50,  color: "#d97706", textColor: "#ffffff" },
-  { label: "20",  value: 20,  color: "#0f172a", textColor: "#facc15" },
-  { label: "60",  value: 60,  color: "#0284c7", textColor: "#ffffff" },
-  { label: "30",  value: 30,  color: "#b91c1c", textColor: "#fef08a" },
-  { label: "100", value: 100, color: "#059669", textColor: "#ffffff" }
+  { label: "10", value: 10, color: "#f97316" },
+  { label: "20", value: 20, color: "#3b82f6" },
+  { label: "15", value: 15, color: "#10b981" },
+  { label: "50", value: 50, color: "#8b5cf6" },
+  { label: "25", value: 25, color: "#eab308" },
+  { label: "10", value: 10, color: "#06b6d4" },
+  { label: "100", value: 100, color: "#ef4444" },
+  { label: "30", value: 30, color: "#84cc16" }
 ];
 
 function drawWheel(angle) {
   var canvas = document.getElementById("wheelCanvas");
   if (!canvas) return;
   var ctx = canvas.getContext("2d");
-  var size = canvas.width;
-  var radius = size / 2;
+  
+  // Responsive fit inside wheel circle border
+  canvas.width = 260;
+  canvas.height = 260;
+  
+  var width = canvas.width;
+  var height = canvas.height;
+  var cx = width / 2;
+  var cy = height / 2;
+  var radius = (width / 2) - 8;
+
+  ctx.clearRect(0, 0, width, height);
+
   var numSectors = sectors.length;
   var arc = (2 * Math.PI) / numSectors;
 
-  ctx.clearRect(0, 0, size, size);
-
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(radius, radius, radius - 2, 0, 2 * Math.PI);
-  var ringGrad = ctx.createLinearGradient(0, 0, size, size);
-  ringGrad.addColorStop(0, "#fef08a");
-  ringGrad.addColorStop(0.5, "#ca8a04");
-  ringGrad.addColorStop(1, "#854d0e");
-  ctx.lineWidth = 10;
-  ctx.strokeStyle = ringGrad;
-  ctx.stroke();
-  ctx.restore();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
 
-  sectors.forEach((sec, i) => {
-    var sAngle = angle + i * arc;
+  for (var i = 0; i < numSectors; i++) {
+    var startAngle = i * arc;
+    var endAngle = startAngle + arc;
+
     ctx.beginPath();
-    ctx.moveTo(radius, radius);
-    ctx.arc(radius, radius, radius - 8, sAngle, sAngle + arc);
-    ctx.lineTo(radius, radius);
-    ctx.fillStyle = sec.color;
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius, startAngle, endAngle);
+    ctx.fillStyle = sectors[i].color;
     ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
     ctx.stroke();
 
+    // Reward Text
     ctx.save();
-    ctx.translate(radius, radius);
-    ctx.rotate(sAngle + arc / 2);
+    ctx.rotate(startAngle + arc / 2);
     ctx.textAlign = "right";
-    ctx.fillStyle = sec.textColor;
-    ctx.font = "900 15px -apple-system, sans-serif";
-    ctx.fillText(sec.label + " 🪙", radius - 24, 5);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 16px -apple-system, sans-serif";
+    ctx.shadowColor = "rgba(0,0,0,0.8)";
+    ctx.shadowBlur = 4;
+    ctx.fillText(sectors[i].label, radius - 16, 5);
     ctx.restore();
-  });
-
-  for (var p = 0; p < numSectors * 2; p++) {
-    var pAngle = angle + p * (arc / 2);
-    var px = radius + (radius - 5) * Math.cos(pAngle);
-    var py = radius + (radius - 5) * Math.sin(pAngle);
-    ctx.beginPath();
-    ctx.arc(px, py, 3, 0, 2 * Math.PI);
-    ctx.fillStyle = "#fef08a";
-    ctx.fill();
-    ctx.stroke();
   }
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(radius, radius, 24, 0, 2 * Math.PI);
-  var centerGrad = ctx.createRadialGradient(radius - 5, radius - 5, 2, radius, radius, 24);
-  centerGrad.addColorStop(0, "#fef08a");
-  centerGrad.addColorStop(0.7, "#eab308");
-  centerGrad.addColorStop(1, "#713f12");
-  ctx.fillStyle = centerGrad;
-  ctx.fill();
   ctx.restore();
+
+  // Center Knob
+  ctx.beginPath();
+  ctx.arc(cx, cy, 18, 0, 2 * Math.PI);
+  ctx.fillStyle = "#fbbf24";
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.stroke();
 }
 
 function initWheelCanvas() {
@@ -729,188 +631,59 @@ function initWheelCanvas() {
 window.spinNow = function() {
   if (isSpinning) return;
   if (userSpins <= 0) {
-    showRewardModal("Limit Reached", "Daily spins finished. Check back tomorrow!", 0);
+    if (typeof showRewardModal === "function") {
+      showRewardModal("Limit Reached", "Daily spins finished. Check back tomorrow!", 0);
+    } else {
+      alert("Daily spins finished. Check back tomorrow!");
+    }
     return;
   }
 
   isSpinning = true;
   userSpins--;
-  updateSpinUIStatus();
   localStorage.setItem("we_spins", userSpins);
-  syncBalances();
-  syncToFirebaseCloud();
+  if (typeof syncBalances === "function") syncBalances();
+  if (typeof syncToFirebaseCloud === "function") syncToFirebaseCloud();
 
   var numSectors = sectors.length;
   var arc = (2 * Math.PI) / numSectors;
 
-  // 85% chance for 10, 20, 30 | 15% chance for 50, 60, 100
-  var rand = Math.random() * 100;
-  var lowIndexes = [];
-  var highIndexes = [];
-  sectors.forEach(function(sec, idx) {
-    if (sec.value <= 30) lowIndexes.push(idx);
-    else highIndexes.push(idx);
-  });
+  // Random sector
+  var winningIndex = Math.floor(Math.random() * numSectors);
+  var winningSector = sectors[winningIndex];
 
-  var winningIndex;
-  if (rand < 85 && lowIndexes.length > 0) {
-    winningIndex = lowIndexes[Math.floor(Math.random() * lowIndexes.length)];
-  } else {
-    winningIndex = highIndexes[Math.floor(Math.random() * highIndexes.length)];
-  }
-  var won = sectors[winningIndex];
+  // Align to top marker
+  var targetAngle = (3 * Math.PI / 2) - (winningIndex * arc + arc / 2);
+  var extraRotations = (5 + Math.floor(Math.random() * 3)) * (2 * Math.PI);
+  var finalAngle = wheelAngle + extraRotations + (targetAngle - (wheelAngle % (2 * Math.PI)));
 
-  var sectorCenter = winningIndex * arc + arc / 2;
-  var topPointerAngle = 1.5 * Math.PI;
-  var requiredFinalAngle = (topPointerAngle - sectorCenter) % (2 * Math.PI);
-  if (requiredFinalAngle < 0) requiredFinalAngle += 2 * Math.PI;
-
-  var currentNorm = wheelAngle % (2 * Math.PI);
-  var forwardDistance = (requiredFinalAngle - currentNorm);
-  if (forwardDistance <= 0) forwardDistance += 2 * Math.PI;
-  var totalRotation = 6 * (2 * Math.PI) + forwardDistance;
-
-  var startA = wheelAngle;
-  var targetA = wheelAngle + totalRotation;
-  var duration = 3800;
   var startTime = performance.now();
+  var duration = 3800;
+  var startA = wheelAngle;
 
-  function animate(curTime) {
-    var elapsed = curTime - startTime;
+  function animate(now) {
+    var elapsed = now - startTime;
     var progress = Math.min(elapsed / duration, 1);
-    var easeOut = 1 - Math.pow(1 - progress, 4);
-    var curAngle = startA + (targetA - startA) * easeOut;
-
-    drawWheel(curAngle);
+    var ease = 1 - Math.pow(1 - progress, 3);
+    wheelAngle = startA + (finalAngle - startA) * ease;
+    drawWheel(wheelAngle);
 
     if (progress < 1) {
       requestAnimationFrame(animate);
     } else {
-      wheelAngle = targetA;
       isSpinning = false;
-      addCoins(won.value, "Lucky Wheel (" + won.label + ")");
-      showRewardModal("LUCKY WINNER!", "Landed on slot: " + won.label + " coins", won.value);
+      userCoins = (parseInt(userCoins, 10) || 0) + winningSector.value;
+      localStorage.setItem("we_coins", userCoins);
+      if (typeof syncBalances === "function") syncBalances();
+      if (typeof syncToFirebaseCloud === "function") syncToFirebaseCloud();
+
+      if (typeof showRewardModal === "function") {
+        showRewardModal("CONGRATULATIONS!", "You won " + winningSector.value + " coins from Lucky Wheel!", winningSector.value);
+      }
     }
   }
+
   requestAnimationFrame(animate);
-};
-
-function addCoins(amount, title) {
-  userCoins += amount;
-  localStorage.setItem("we_coins", userCoins);
-  syncBalances();
-  syncToFirebaseCloud();
-
-  var logs = JSON.parse(localStorage.getItem("we_coin_logs_" + currentUID) || "[]");
-  logs.unshift({
-    title: title,
-    coins: amount,
-    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  });
-  localStorage.setItem("we_coin_logs_" + currentUID, JSON.stringify(logs.slice(0, 30)));
-}
-
-// Withdrawal
-window.selectAmount = function(amt, btn) {
-  selectedWithdrawAmount = amt;
-  document.querySelectorAll(".amt-chip").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-};
-
-window.submitWithdrawal = function() {
-  if (!currentUser) {
-    alert("Please sign in first!");
-    return;
-  }
-
-  var upi = document.getElementById("upiIdInput").value.trim();
-  if (!upi || !upi.includes("@")) {
-    showRewardModal("Invalid UPI", "Please enter a valid UPI address (e.g. mobile@paytm)", 0);
-    return;
-  }
-
-  var coinsNeeded = selectedWithdrawAmount * 100;
-  if (userCoins < coinsNeeded) {
-    showRewardModal("Low Balance", "You need " + coinsNeeded.toLocaleString() + " coins for ₹" + selectedWithdrawAmount, 0);
-    return;
-  }
-
-  userCoins -= coinsNeeded;
-  localStorage.setItem("we_coins", userCoins);
-  syncBalances();
-  syncToFirebaseCloud();
-
-  var reqId = "W" + Date.now();
-  var newReq = {
-    id: reqId,
-    amount: selectedWithdrawAmount,
-    upi: upi,
-    status: "Pending",
-    timestamp: Date.now(),
-    date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString([], {hour: "2-digit", minute:"2-digit"})
-  };
-
-  // Push to Firebase RTDB under User's ID
-  rtdb.ref("withdrawals/" + currentUser.uid + "/" + reqId).set(newReq);
-  var curW = JSON.parse(localStorage.getItem("we_withdraw_list_" + currentUID) || "[]");
-  curW.unshift(newReq);
-  localStorage.setItem("we_withdraw_list_" + currentUID, JSON.stringify(curW));
-
-  // Send Direct Telegram Notification with accurate callback_data
-  var botToken = "8439244872:AAFiAPlZhrf5hG1odhZ25Y6oGbrCtNyaRVY";
-  var adminChatId = "8954689240";
-  var msgText = "⚡ *NEW WITHDRAWAL REQUEST*\n" +
-                "━━━━━━━━━━━━━━━━━━━━\n" +
-                "👤 *User:* " + (currentUser.displayName || "Player") + "\n" +
-                "📧 *Email:* " + (currentUser.email || "N/A") + "\n" +
-                "🆔 *UID:* `" + currentUser.uid + "`\n" +
-                "💰 *Amount:* ₹" + selectedWithdrawAmount + " (" + (selectedWithdrawAmount * 100) + " 🪙)\n" +
-                "💳 *UPI ID:* `" + upi + "`\n" +
-                "📅 *Time:* " + newReq.date;
-
-  var keyboard = {
-    inline_keyboard: [
-      [
-        { text: "✅ Approve", callback_data: "approve_" + reqId + "_" + currentUser.uid + "_" + selectedWithdrawAmount },
-        { text: "❌ Decline", callback_data: "decline_" + reqId + "_" + currentUser.uid + "_" + selectedWithdrawAmount }
-      ]
-    ]
-  };
-
-  fetch("https://api.telegram.org/bot" + botToken + "/sendMessage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: adminChatId,
-      text: msgText,
-      parse_mode: "Markdown",
-      reply_markup: keyboard
-    })
-  }).catch(function(e) {});
-
-  document.getElementById("upiIdInput").value = "";
-  showRewardModal("REQUEST SENT!", "Withdrawal of ₹" + selectedWithdrawAmount + " queued for payout.", selectedWithdrawAmount * 100);
-  switchScreen("history");
-};
-
-// History Render
-window.toggleHistory = function(type) {
-  var bCoins = document.getElementById("tabHCoins");
-  var bWith = document.getElementById("tabHWithdraw");
-  var pCoins = document.getElementById("historyCoinsBox");
-  var pWith = document.getElementById("historyWithdrawBox");
-
-  if (type === "coins") {
-    bCoins.classList.add("active");
-    bWith.classList.remove("active");
-    pCoins.style.display = "block";
-    pWith.style.display = "none";
-  } else {
-    bWith.classList.add("active");
-    bCoins.classList.remove("active");
-    pCoins.style.display = "none";
-    pWith.style.display = "block";
-  }
 };
 
 function renderHistory() {
@@ -931,23 +704,7 @@ function renderHistory() {
   }
 
   var wBox = document.getElementById("historyWithdrawBox");
-  if (currentUser) {
-    rtdb.ref("withdrawals/" + currentUser.uid).once("value", function(snap) {
-      var data = snap.val();
-      var wLogs = [];
-      if (data) {
-        Object.keys(data).forEach(function(k) { wLogs.push(data[k]); });
-        wLogs.sort((a, b) => b.timestamp - a.timestamp);
-      }
-      renderWithdrawItems(wLogs, wBox);
-    });
-  }
   var wLogs = JSON.parse(localStorage.getItem("we_withdraw_list_" + currentUID) || "[]");
-  renderWithdrawItems(wLogs, wBox);
-}
-
-function renderWithdrawItems(wLogs, wBox) {
-  if (!wBox) return;
   if (wLogs.length === 0) {
     wBox.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No withdrawal records.</div>';
   } else {
@@ -979,79 +736,3 @@ function renderWithdrawItems(wLogs, wBox) {
 document.addEventListener("DOMContentLoaded", function() {
   initWheelCanvas();
 });
-
-// 5 Free + 10 Ad Spins Handler (Strict Toggle Logic)
-function updateSpinUIStatus() {
-  var adSpinsUsed = 0;
-  if (currentUser) {
-    adSpinsUsed = parseInt(localStorage.getItem("we_ad_spins_used_" + currentUser.uid) || "0", 10);
-  }
-  var remainingAds = Math.max(0, 10 - adSpinsUsed);
-  var spinBtn = document.getElementById("spinBtn");
-  var adBtn = document.getElementById("watchAdSpinBtn");
-  var leftTxt = document.getElementById("extraSpinsLeftText");
-
-  if (leftTxt) leftTxt.innerText = remainingAds;
-
-  if (userSpins > 0) {
-    if (spinBtn) spinBtn.style.display = "block";
-    if (adBtn) adBtn.style.display = "none";
-  } else {
-    if (spinBtn) spinBtn.style.display = "none";
-    if (adBtn) {
-      if (remainingAds > 0) {
-        adBtn.style.display = "block";
-      } else {
-        adBtn.style.display = "none";
-      }
-    }
-  }
-}
-
-// Watch Ad for Extra Spin Logic
-window.watchAdForExtraSpin = function() {
-  if (!currentUser) {
-    alert("Please sign in first!");
-    return;
-  }
-  var adKey = "we_ad_spins_used_" + currentUser.uid;
-  var adSpinsUsed = parseInt(localStorage.getItem(adKey) || "0", 10);
-
-  if (adSpinsUsed >= 10) {
-    alert("Daily limit reached! You have already used all 10 ad spins today.");
-    updateSpinUIStatus();
-    return;
-  }
-
-  var adBtn = document.getElementById("watchAdSpinBtn");
-  if (adBtn) {
-    adBtn.disabled = true;
-    adBtn.innerText = "Loading Ad...";
-  }
-
-  // Open Direct Link
-  window.open("https://omg10.com/4/11858486", "_blank");
-
-  // Trigger Ad / Reward Flow
-  setTimeout(function() {
-    adSpinsUsed++;
-    localStorage.setItem(adKey, adSpinsUsed.toString());
-    userSpins++;
-    localStorage.setItem("we_spins", userSpins);
-
-    syncBalances();
-    syncToFirebaseCloud();
-
-    if (adBtn) {
-      adBtn.disabled = false;
-      adBtn.innerHTML = "🎬 Watch Ad for +1 Spin (<span id='extraSpinsLeftText'>" + Math.max(0, 10 - adSpinsUsed) + "</span> left)";
-    }
-
-    updateSpinUIStatus();
-    if (typeof showRewardModal === "function") {
-      showRewardModal("EXTRA SPIN UNLOCKED!", "You got +1 Spin for watching an ad!", 0);
-    } else {
-      alert("Congratulations! +1 Spin has been added.");
-    }
-  }, 1000);
-};
