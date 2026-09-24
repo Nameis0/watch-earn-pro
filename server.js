@@ -1,7 +1,7 @@
 const axios = require('axios');
 const https = require('https');
 
-const BOT_TOKEN = "8439244872:AAFiAPlZhrf5hG1odhZ25Y6oGbrCtNyaRVY";
+const BOT_TOKEN = "8439244872:AAEFE2ojvtm99hHloFlqNxA10AZiHUPFnJc";
 const DB_URL = "https://watchandearn-com-default-rtdb.firebaseio.com";
 
 let lastUpdateId = 0;
